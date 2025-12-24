@@ -216,7 +216,6 @@ pub fn move_to_trash(path: &str) -> Result<(), String> {
 mod tests {
     use super::*;
     use std::fs::File;
-    use tempfile::NamedTempFile;
 
     #[test]
     fn test_get_file_category() {
@@ -237,12 +236,12 @@ mod tests {
 
         // Create a large file
         let large_file_path = dir_path.join("large_video.mp4");
-        let mut f = File::create(&large_file_path).unwrap();
+        let f = File::create(&large_file_path).unwrap();
         f.set_len(1024 * 1024 * 5).unwrap(); // 5MB
 
         // Create a small file
         let small_file_path = dir_path.join("small.txt");
-        let mut f = File::create(&small_file_path).unwrap();
+        let f = File::create(&small_file_path).unwrap();
         f.set_len(1024).unwrap(); // 1KB
 
         let files = scan_large_files(dir_path.to_str().unwrap(), 1, None); // Min 1MB

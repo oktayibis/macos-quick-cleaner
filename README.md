@@ -60,6 +60,51 @@ We use a strict quality gate to ensure code stability.
   ```
   This runs both `ESLint` (Frontend) and `Clippy` (Backend).
 
+## 🚢 Release Process
+
+To publish a new version of the app, follow these steps:
+
+1.  **Update Version**:
+    Bump the version number in both `package.json` and `src-tauri/tauri.conf.json`.
+
+    ```json
+    // package.json
+    "version": "1.0.1",
+
+    // src-tauri/tauri.conf.json
+    "version": "1.0.1",
+    ```
+
+2.  **Commit Changes**:
+
+    ```bash
+    git commit -am "chore: release v1.0.1"
+    ```
+
+3.  **Tag the Release**:
+    Create a lightweight tag matching the version number (must start with `v`).
+
+    ```bash
+    git tag v1.0.1
+    ```
+
+4.  **Push Changes and Tag**:
+
+    ```bash
+    git push origin main
+    git push origin v1.0.1
+    ```
+
+5.  **Wait for CI**:
+    The GitHub Action `Release App` will automatically trigger. It will:
+
+    - Build the macOS application (`.dmg`).
+    - Create a GitHub Release draft.
+    - Upload the assets.
+
+6.  **Publish**:
+    Go to the [Releases](https://github.com/oktayibis/macos-quick-cleaner/releases) page on GitHub, verify the draft, and click "Publish".
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

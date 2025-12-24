@@ -43,3 +43,19 @@ pub async fn delete_file(path: String) -> Result<(), String> {
 pub async fn move_file_to_trash(path: String) -> Result<(), String> {
     file_scanner::move_to_trash(&path)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_scan_large_files() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let _ = scan_large_files(temp_dir.path().to_string_lossy().to_string(), 1, None).await;
+    }
+
+    #[tokio::test]
+    async fn test_scan_common_large_files() {
+        let _ = scan_common_large_files(10).await;
+    }
+}

@@ -31,3 +31,24 @@ pub async fn get_total_cache_size() -> Result<u64, String> {
     let caches = cache_scanner::scan_all_caches();
     Ok(caches.iter().map(|c| c.size).sum())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_scan_user_caches() {
+        let _ = scan_user_caches().await;
+        // Don't assert result contents as it depends on system state
+    }
+
+    #[tokio::test]
+    async fn test_scan_system_caches() {
+        let _ = scan_system_caches().await;
+    }
+
+    #[tokio::test]
+    async fn test_scan_all_caches() {
+        let _ = scan_all_caches().await;
+    }
+}

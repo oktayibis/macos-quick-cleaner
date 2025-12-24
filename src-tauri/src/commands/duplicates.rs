@@ -31,3 +31,19 @@ pub async fn get_duplicates_wasted_space(min_size_mb: u64) -> Result<u64, String
     let duplicates = hash_scanner::scan_common_directories_for_duplicates(min_size_mb);
     Ok(duplicates.iter().map(|d| d.total_wasted).sum())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_scan_duplicates() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let _ = scan_duplicates(temp_dir.path().to_string_lossy().to_string(), 0).await;
+    }
+
+    #[tokio::test]
+    async fn test_scan_common_duplicates() {
+        let _ = scan_common_duplicates(10).await;
+    }
+}

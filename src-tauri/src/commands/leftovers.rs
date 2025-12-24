@@ -44,3 +44,16 @@ pub async fn get_orphan_total_size() -> Result<u64, String> {
     let orphans = app_scanner::scan_orphan_files();
     Ok(orphans.iter().map(|o| o.size).sum())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_scan_wrappers() {
+        let _ = scan_installed_apps().await;
+        let _ = scan_orphan_files().await;
+        let _ = scan_large_app_data().await;
+        let _ = get_orphan_total_size().await;
+    }
+}

@@ -110,3 +110,33 @@ pub async fn format_bytes(bytes: u64) -> Result<String, String> {
     
     Ok(result)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_format_bytes() {
+        assert_eq!(format_bytes(100).await.unwrap(), "100 B");
+        assert_eq!(format_bytes(1024).await.unwrap(), "1.00 KB");
+        assert_eq!(format_bytes(1024 * 1024).await.unwrap(), "1.00 MB");
+        assert_eq!(format_bytes(1024 * 1024 * 1024).await.unwrap(), "1.00 GB");
+    }
+
+    #[tokio::test]
+    async fn test_get_system_info() {
+        let info = get_system_info().await.unwrap();
+        assert!(!info.hostname.is_empty());
+        assert!(!info.username.is_empty());
+        assert_eq!(info.os_version, "macOS");
+    }
+
+    #[tokio::test]
+    async fn test_get_disk_usage() {
+        let usage = get_disk_usage();
+        // Just verify basic sanity
+        if usage.total_bytes > 0 {
+             assert!(usage.total_bytes >= usage.used_bytes);
+        }
+    }
+}

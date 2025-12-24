@@ -13,6 +13,7 @@
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:backend": "cd src-tauri && cargo test",
+    "test:backend:coverage": "cd src-tauri && cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info",
     "quality-gate": "npm run lint:frontend && npm run lint:backend && npm run test:coverage && npm run test:backend"
   },
   "dependencies": {

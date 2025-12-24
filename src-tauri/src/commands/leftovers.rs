@@ -48,6 +48,7 @@ pub async fn get_orphan_total_size() -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
 
     #[tokio::test]
     async fn test_scan_wrappers() {
@@ -56,4 +57,55 @@ mod tests {
         let _ = scan_large_app_data().await;
         let _ = get_orphan_total_size().await;
     }
+
+    #[tokio::test]
+    async fn test_delete_orphan_file() {
+        // Create a temp file
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("test_orphan.txt");
+        let mut file = std::fs::File::create(&file_path).unwrap();
+        writeln!(file, "orphan content").unwrap();
+        drop(file);
+
+        let result = delete_orphan(file_path.to_string_lossy().to_string()).await;
+        assert!(result.is_ok());
+        assert!(!file_path.exists());
+    }
+
+    #[tokio::test]
+    async fn test_delete_orphan_directory() {
+        // Create a temp directory with a file inside
+        let temp_dir = tempfile::tempdir().unwrap();
+        let sub_dir = temp_dir.path().join("orphan_dir");
+        std::fs::create_dir(&sub_dir).unwrap();
+        let file_path = sub_dir.join("file.txt");
+        let mut file = std::fs::File::create(&file_path).unwrap();
+        writeln!(file, "file in orphan dir").unwrap();
+        drop(file);
+
+        let result = delete_orphan(sub_dir.to_string_lossy().to_string()).await;
+        assert!(result.is_ok());
+        assert!(!sub_dir.exists());
+    }
+
+    #[tokio::test]
+    async fn test_delete_orphan_nonexistent() {
+        // Functions return Ok(()) for nonexistent files by design (idempotent delete)
+        let result = delete_orphan("/nonexistent/path/orphan".to_string()).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_reveal_in_finder() {
+        // Create a temp file
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("reveal_test.txt");
+        let mut file = std::fs::File::create(&file_path).unwrap();
+        writeln!(file, "reveal me").unwrap();
+        drop(file);
+
+        // On macOS, this should work; on CI/Linux it may fail but shouldn't panic
+        let _ = reveal_in_finder(file_path.to_string_lossy().to_string()).await;
+    }
 }
+

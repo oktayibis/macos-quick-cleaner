@@ -10,7 +10,9 @@
     "tauri": "tauri",
     "lint:frontend": "eslint .",
     "lint:backend": "cd src-tauri && cargo clippy -- -D warnings",
-    "quality-gate": "npm run lint:frontend && npm run lint:backend"
+    "quality-gate": "npm run lint:frontend && npm run lint:backend && npm run test:coverage",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -28,17 +30,23 @@
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@tauri-apps/cli": "^2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
+    "@vitest/coverage-v8": "^4.0.16",
     "eslint": "^9.39.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",
     "eslint-plugin-sonarjs": "^3.0.5",
     "globals": "^16.5.0",
+    "jsdom": "^27.3.0",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.50.1",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "^4.0.16"
   }
 }

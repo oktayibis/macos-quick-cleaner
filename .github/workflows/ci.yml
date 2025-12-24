@@ -51,6 +51,9 @@ jobs:
       - name: Run Frontend Lint
         run: npm run lint:frontend
 
+      - name: Run Frontend Tests
+        run: npm run test
+
   backend-quality:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
@@ -75,3 +78,6 @@ jobs:
 
       - name: Run Backend Lint (Clippy)
         run: npm run lint:backend
+
+      - name: Run Backend Tests
+        run: cd src-tauri && cargo test

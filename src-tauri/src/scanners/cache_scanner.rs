@@ -208,3 +208,34 @@ pub fn delete_cache(path: &str) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_determine_cache_type() {
+        assert_eq!(determine_cache_type("com.apple.Safari"), CacheType::Browser);
+        assert_eq!(determine_cache_type("org.mozilla.firefox"), CacheType::Browser);
+        assert_eq!(determine_cache_type("com.apple.dt.Xcode"), CacheType::Developer);
+        assert_eq!(determine_cache_type("cargo"), CacheType::Developer);
+        assert_eq!(determine_cache_type("com.apple.System"), CacheType::System);
+        assert_eq!(determine_cache_type("com.myapp.Something"), CacheType::Application);
+    }
+
+    #[test]
+    fn test_is_developer_cache() {
+        assert!(is_developer_cache("com.apple.dt.Xcode"));
+        assert!(is_developer_cache("npm"));
+        assert!(!is_developer_cache("com.apple.Safari"));
+    }
+
+    #[test]
+    fn test_is_safe_to_delete() {
+        assert!(is_safe_to_delete("any", &CacheType::Browser));
+        assert!(is_safe_to_delete("any", &CacheType::Developer));
+        assert!(is_safe_to_delete("any", &CacheType::Application));
+        assert!(!is_safe_to_delete("any", &CacheType::System));
+        assert!(!is_safe_to_delete("any", &CacheType::Unknown));
+    }
+}

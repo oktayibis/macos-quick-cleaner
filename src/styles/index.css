@@ -2,38 +2,41 @@
 /* Modern dark-mode-first design with glassmorphism */
 
 :root {
-  /* Color palette */
-  --color-bg-primary: #0d0d12;
-  --color-bg-secondary: #141419;
-  --color-bg-tertiary: #1a1a22;
-  --color-bg-elevated: #22222c;
+  /* Cosmic Neon Theme */
+  --color-bg-primary: #050B14;     /* Deep Space Blue */
+  --color-bg-secondary: #0F1623;   /* Lighter Space Blue */
+  --color-bg-tertiary: #151E2E;    /* Even Lighter */
+  --color-bg-elevated: #1E293B;    /* Card Background */
 
   /* Glass effects */
-  --color-glass: rgba(255, 255, 255, 0.05);
-  --color-glass-border: rgba(255, 255, 255, 0.08);
-  --color-glass-hover: rgba(255, 255, 255, 0.08);
+  --color-glass: rgba(15, 22, 35, 0.7);
+  --color-glass-border: rgba(0, 229, 255, 0.1);
+  --color-glass-hover: rgba(0, 229, 255, 0.05);
 
-  /* Accent colors */
-  --color-accent: #6366f1;
-  --color-accent-hover: #818cf8;
-  --color-accent-light: rgba(99, 102, 241, 0.15);
+  /* Accent colors - Neon Cyan */
+  --color-accent: #00E5FF;
+  --color-accent-hover: #33EBFF;
+  --color-accent-light: rgba(0, 229, 255, 0.15);
+
+  /* Secondary Accent - Neon Magenta */
+  --color-accent-secondary: #FF2E93;
 
   /* Status colors */
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #3b82f6;
+  --color-success: #10B981;        /* Emerald */
+  --color-warning: #FFD700;        /* Gold */
+  --color-danger: #FF2E93;         /* Neon Pink/Red for danger */
+  --color-info: #00E5FF;           /* Cyan */
 
   /* Text colors */
-  --color-text-primary: #f4f4f5;
-  --color-text-secondary: #a1a1aa;
-  --color-text-tertiary: #71717a;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --color-text-tertiary: #64748B;
 
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  --gradient-success: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
-  --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
-  --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  --gradient-primary: linear-gradient(135deg, #00E5FF 0%, #2979FF 100%);
+  --gradient-success: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  --gradient-warning: linear-gradient(135deg, #FFD700 0%, #F59E0B 100%);
+  --gradient-danger: linear-gradient(135deg, #FF2E93 0%, #BE185D 100%);
 
   /* Spacing */
   --spacing-xs: 4px;
@@ -49,21 +52,30 @@
   --radius-lg: 16px;
   --radius-xl: 24px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.3);
-
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
   --transition-slow: 400ms ease;
 
   /* Typography */
-  --font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, sans-serif;
-  --font-mono: "SF Mono", "Fira Code", monospace;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(0, 229, 255, 0.2);
 }
 
 /* Reset */
@@ -83,12 +95,12 @@ body,
 }
 
 body {
-  font-family: var(--font-sans);
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--color-bg-primary);
 }
 
 /* App container */
@@ -120,11 +132,12 @@ body {
 .sidebar-logo {
   width: 40px;
   height: 40px;
-  background: var(--gradient-primary);
+  /* background: var(--gradient-primary);  Removed to show actual icon */
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden; /* Ensure icon stays within rounded corners */
 }
 
 .sidebar-title {

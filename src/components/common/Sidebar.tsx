@@ -7,7 +7,6 @@ import {
   FolderX,
   FileVideo,
   Copy,
-  Sparkles,
 } from 'lucide-react';
 
 interface NavItem {
@@ -32,7 +31,7 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <Sparkles size={24} color="white" />
+          <img src="/sidebar_icon.png" alt="Logo" />
         </div>
         <div>
           <h1 className="sidebar-title">Quick Cleaner</h1>

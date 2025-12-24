@@ -1,19 +1,23 @@
 import { useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
-import { formatBytes, getCategoryClass } from '../../hooks/useFormatters';
-import { FileVideo, RefreshCw, Trash2, File, Image, Music, Archive, FileText, Check, Square, CheckSquare } from 'lucide-react';
+import { formatBytes } from '../../hooks/useFormatters';
+import { FolderX, RefreshCw, Trash2, Check, Square, CheckSquare, FolderOpen } from 'lucide-react';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ProgressOverlay } from '../common/ProgressOverlay';
+import { invoke } from '@tauri-apps/api/core';
 
 export function LargeFiles() {
-  const { largeFiles, isLoadingLargeFiles, scanLargeFiles, deleteFile } = useAppStore();
-  const [minSizeMb, setMinSizeMb] = useState(100);
+  const { 
+    largeAppData, isLoadingLargeAppData, scanLargeAppData, deleteLargeAppData,
+    addToast 
+  } = useAppStore();
+  
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   
   // Progress state
   const [progress, setProgress] = useState({ current: 0, total: 0, item: '' });
-  
+
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -21,8 +25,8 @@ export function LargeFiles() {
     path?: string;
   }>({ isOpen: false, type: 'single' });
 
-  const totalSize = largeFiles.reduce((sum, f) => sum + f.size, 0);
-  const selectedSize = largeFiles.filter(f => selectedPaths.has(f.path)).reduce((sum, f) => sum + f.size, 0);
+  const totalSize = largeAppData.reduce((sum, item) => sum + item.size, 0);
+  const selectedSize = largeAppData.filter(item => selectedPaths.has(item.path)).reduce((sum, item) => sum + item.size, 0);
 
   const toggleSelection = (path: string) => {
     const newSelected = new Set(selectedPaths);
@@ -35,7 +39,7 @@ export function LargeFiles() {
   };
 
   const selectAll = () => {
-    setSelectedPaths(new Set(largeFiles.map(f => f.path)));
+    setSelectedPaths(new Set(largeAppData.map(item => item.path)));
   };
 
   const deselectAll = () => {
@@ -52,35 +56,63 @@ export function LargeFiles() {
   };
 
   const handleDeleteAll = () => {
-    if (largeFiles.length === 0) return;
+    if (largeAppData.length === 0) return;
     setConfirmDialog({ isOpen: true, type: 'all' });
+  };
+
+  const handleOpenInFinder = async (path: string) => {
+    try {
+      await invoke('reveal_in_finder', { path });
+      addToast('info', 'Opened in Finder', 'You can now delete this folder manually in Finder');
+    } catch (error) {
+      addToast('error', 'Failed to Open', String(error));
+    }
   };
 
   const executeDelete = async () => {
     setIsDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
     
     if (confirmDialog.type === 'single' && confirmDialog.path) {
-      const file = largeFiles.find(f => f.path === confirmDialog.path);
-      setProgress({ current: 0, total: 1, item: file?.name || '' });
-      await deleteFile(confirmDialog.path);
-      selectedPaths.delete(confirmDialog.path);
-      setSelectedPaths(new Set(selectedPaths));
+      const item = largeAppData.find(d => d.path === confirmDialog.path);
+      setProgress({ current: 0, total: 1, item: item?.name || '' });
+      const success = await deleteLargeAppData(confirmDialog.path);
+      if (success) {
+        successCount++;
+        selectedPaths.delete(confirmDialog.path);
+        setSelectedPaths(new Set(selectedPaths));
+      } else {
+        failCount++;
+      }
     } else if (confirmDialog.type === 'selected') {
       const paths = Array.from(selectedPaths);
       setProgress({ current: 0, total: paths.length, item: '' });
       for (let i = 0; i < paths.length; i++) {
-        const file = largeFiles.find(f => f.path === paths[i]);
-        setProgress({ current: i, total: paths.length, item: file?.name || paths[i] });
-        await deleteFile(paths[i]);
+        const item = largeAppData.find(d => d.path === paths[i]);
+        setProgress({ current: i, total: paths.length, item: item?.name || paths[i] });
+        const success = await deleteLargeAppData(paths[i]);
+        if (success) successCount++;
+        else failCount++;
       }
       setSelectedPaths(new Set());
     } else if (confirmDialog.type === 'all') {
-      setProgress({ current: 0, total: largeFiles.length, item: '' });
-      for (let i = 0; i < largeFiles.length; i++) {
-        setProgress({ current: i, total: largeFiles.length, item: largeFiles[i].name });
-        await deleteFile(largeFiles[i].path);
+      const allItems = [...largeAppData];
+      setProgress({ current: 0, total: allItems.length, item: '' });
+      for (let i = 0; i < allItems.length; i++) {
+        setProgress({ current: i, total: allItems.length, item: allItems[i].name });
+        const success = await deleteLargeAppData(allItems[i].path);
+        if (success) successCount++;
+        else failCount++;
       }
       setSelectedPaths(new Set());
+    }
+    
+    // Show summary toast
+    if (successCount > 0 && failCount === 0) {
+      addToast('success', 'Delete Complete', `Successfully deleted ${successCount} folder${successCount > 1 ? 's' : ''}`);
+    } else if (failCount > 0 && successCount > 0) {
+      addToast('warning', 'Partial Delete', `Deleted ${successCount}, failed ${failCount}`);
     }
     
     setProgress({ current: 0, total: 0, item: '' });
@@ -89,57 +121,46 @@ export function LargeFiles() {
 
   const getDialogProps = () => {
     if (confirmDialog.type === 'single' && confirmDialog.path) {
-      const file = largeFiles.find(f => f.path === confirmDialog.path);
+      const item = largeAppData.find(o => o.path === confirmDialog.path);
       return {
-        title: 'Move to Trash?',
-        message: `Are you sure you want to move "${file?.name}" to Trash?`,
+        title: 'Delete Large Folder?',
+        message: `Are you sure you want to delete "${item?.name}"?`,
         itemCount: 1,
-        totalSize: formatBytes(file?.size || 0),
+        totalSize: formatBytes(item?.size || 0),
       };
     } else if (confirmDialog.type === 'selected') {
       return {
-        title: 'Move Selected to Trash?',
-        message: 'Are you sure you want to move all selected files to Trash?',
+        title: 'Delete Selected Folders?',
+        message: 'Are you sure you want to delete all selected folders? This action cannot be undone.',
         itemCount: selectedPaths.size,
         totalSize: formatBytes(selectedSize),
       };
     } else {
       return {
-        title: 'Move All to Trash?',
-        message: 'Are you sure you want to move ALL large files to Trash? This is a significant action.',
-        itemCount: largeFiles.length,
+        title: 'Delete All Large Folders?',
+        message: 'Are you sure you want to delete all large folders? This action cannot be undone.',
+        itemCount: largeAppData.length,
         totalSize: formatBytes(totalSize),
       };
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'Video': return <FileVideo size={20} color="#ef4444" />;
-      case 'Image': return <Image size={20} color="#22c55e" />;
-      case 'Audio': return <Music size={20} color="#f59e0b" />;
-      case 'Archive': return <Archive size={20} color="#6366f1" />;
-      case 'Document': return <FileText size={20} color="#3b82f6" />;
-      default: return <File size={20} />;
     }
   };
 
   return (
     <div className="main-content">
       <header className="page-header">
-        <h1 className="page-title">Large Files</h1>
-        <p className="page-subtitle">Find and remove large files taking up disk space</p>
+        <h1 className="page-title">Large App Data</h1>
+        <p className="page-subtitle">Find the largest application data folders sorted by size</p>
       </header>
 
       {/* Stats */}
       <div className="stats-grid" style={{ marginBottom: '24px' }}>
         <div className="stat-card">
-          <div className="stat-icon large">
-            <FileVideo size={24} />
+          <div className="stat-icon leftover">
+            <FolderX size={24} />
           </div>
           <div className="stat-content">
             <div className="stat-value">{formatBytes(totalSize)}</div>
-            <div className="stat-label">Large Files Found</div>
+            <div className="stat-label">Large Folders Found</div>
           </div>
         </div>
         {selectedPaths.size > 0 && (
@@ -156,47 +177,24 @@ export function LargeFiles() {
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
         <button
-          className={`btn btn-primary ${isLoadingLargeFiles ? 'loading' : ''}`}
-          onClick={() => scanLargeFiles(minSizeMb)}
-          disabled={isLoadingLargeFiles || isDeleting}
+          className={`btn btn-primary ${isLoadingLargeAppData ? 'loading' : ''}`}
+          onClick={scanLargeAppData}
+          disabled={isLoadingLargeAppData || isDeleting}
         >
-          <RefreshCw size={18} className={isLoadingLargeFiles ? 'spinner' : ''} />
-          {isLoadingLargeFiles ? 'Scanning...' : 'Scan Large Files'}
+          <RefreshCw size={18} className={isLoadingLargeAppData ? 'spinner' : ''} />
+          {isLoadingLargeAppData ? 'Scanning...' : 'Scan Large Folders'}
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>
-            Min size:
-          </label>
-          <select
-            value={minSizeMb}
-            onChange={(e) => setMinSizeMb(Number(e.target.value))}
-            style={{
-              background: 'var(--color-bg-tertiary)',
-              border: '1px solid var(--color-glass-border)',
-              borderRadius: '6px',
-              padding: '8px 12px',
-              color: 'var(--color-text-primary)',
-              fontSize: '0.875rem',
-            }}
-          >
-            <option value={10}>10 MB</option>
-            <option value={50}>50 MB</option>
-            <option value={100}>100 MB</option>
-            <option value={500}>500 MB</option>
-            <option value={1000}>1 GB</option>
-          </select>
-        </div>
-        
-        {largeFiles.length > 0 && (
+
+        {largeAppData.length > 0 && (
           <>
             <button
               className="btn btn-secondary"
-              onClick={selectedPaths.size === largeFiles.length ? deselectAll : selectAll}
+              onClick={selectedPaths.size === largeAppData.length ? deselectAll : selectAll}
               disabled={isDeleting}
             >
-              {selectedPaths.size === largeFiles.length ? (
+              {selectedPaths.size === largeAppData.length ? (
                 <><Square size={18} /> Deselect All</>
               ) : (
                 <><CheckSquare size={18} /> Select All</>
@@ -226,45 +224,51 @@ export function LargeFiles() {
         )}
       </div>
 
-      {/* File list */}
+      {/* List */}
       <div className="card">
         <div className="card-header">
-          <h3 className="card-title">Large Files ({largeFiles.length})</h3>
+          <h3 className="card-title">Large App Folders ({largeAppData.length})</h3>
         </div>
 
-        {largeFiles.length === 0 ? (
+        {largeAppData.length === 0 ? (
           <div className="empty-state">
-            <FileVideo size={48} className="empty-state-icon" />
-            <p className="empty-state-title">No large files scanned yet</p>
-            <p>Click "Scan Large Files" to find files larger than {minSizeMb} MB</p>
+            <FolderX size={48} className="empty-state-icon" />
+            <p className="empty-state-title">No large folders scanned yet</p>
+            <p>Click "Scan Large Folders" to find the biggest app data folders</p>
           </div>
         ) : (
           <div className="list">
-            {largeFiles.map((file) => (
-              <div key={file.path} className="list-item">
+            {largeAppData.map((item) => (
+              <div key={item.path} className="list-item">
                 <div
-                  className={`checkbox ${selectedPaths.has(file.path) ? 'checked' : ''}`}
-                  onClick={() => toggleSelection(file.path)}
+                  className={`checkbox ${selectedPaths.has(item.path) ? 'checked' : ''}`}
+                  onClick={() => toggleSelection(item.path)}
                 >
-                  {selectedPaths.has(file.path) && <Check size={14} color="white" />}
+                  {selectedPaths.has(item.path) && <Check size={14} color="white" />}
                 </div>
                 <div className="list-item-icon">
-                  {getCategoryIcon(file.category)}
+                  <FolderX size={20} />
                 </div>
                 <div className="list-item-content">
-                  <div className="list-item-title">{file.name}</div>
-                  <div className="list-item-subtitle" style={{ fontSize: '0.75rem' }}>
-                    {file.path}
+                  <div className="list-item-title">{item.name}</div>
+                  <div className="list-item-subtitle">
+                    Location: {item.location}
                   </div>
                 </div>
-                <span className={`badge ${getCategoryClass(file.category)}`}>
-                  {file.category}
-                </span>
-                <div className="list-item-size">{formatBytes(file.size)}</div>
+                <span className="badge badge-video">{item.location}</span>
+                <div className="list-item-size">{formatBytes(item.size)}</div>
+                <button
+                  className="btn btn-icon btn-secondary"
+                  onClick={() => handleOpenInFinder(item.path)}
+                  title="Open in Finder"
+                  disabled={isDeleting}
+                >
+                  <FolderOpen size={16} />
+                </button>
                 <button
                   className="btn btn-icon btn-danger"
-                  onClick={() => handleDeleteSingle(file.path)}
-                  title="Move to Trash"
+                  onClick={() => handleDeleteSingle(item.path)}
+                  title="Delete"
                   disabled={isDeleting}
                 >
                   <Trash2 size={16} />
@@ -278,20 +282,22 @@ export function LargeFiles() {
       {/* Confirmation Dialog */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
-        onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
-        onConfirm={executeDelete}
-        confirmText="Move to Trash"
+        onClose={() => setConfirmDialog({ isOpen: false, type: 'single' })}
+        onConfirm={() => {
+          setConfirmDialog({ isOpen: false, type: 'single' });
+          executeDelete();
+        }}
         {...getDialogProps()}
       />
 
       {/* Progress Overlay */}
-      <ProgressOverlay
-        isVisible={isDeleting}
-        currentItem={progress.item}
-        currentIndex={progress.current}
-        totalItems={progress.total}
-        action="Moving to Trash"
-      />
+      {isDeleting && (
+        <ProgressOverlay
+          current={progress.current}
+          total={progress.total}
+          itemName={progress.item}
+        />
+      )}
     </div>
   );
 }

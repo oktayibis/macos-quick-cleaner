@@ -28,7 +28,9 @@ pub fn run() {
             // Leftover commands
             leftovers::scan_installed_apps,
             leftovers::scan_orphan_files,
+            leftovers::scan_large_app_data,
             leftovers::delete_orphan,
+            leftovers::reveal_in_finder,
             leftovers::get_orphan_total_size,
             // Large files commands
             large_files::scan_large_files,

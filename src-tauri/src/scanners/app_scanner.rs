@@ -103,33 +103,90 @@ pub fn scan_installed_apps() -> Vec<InstalledApp> {
 /// Get a set of known bundle ID prefixes from installed apps
 fn get_known_bundle_prefixes(apps: &[InstalledApp]) -> HashSet<String> {
     let mut prefixes = HashSet::new();
+    
+    // Add all installed .app bundles
     for app in apps {
         if !app.bundle_id.is_empty() {
+            // Add full bundle ID
             prefixes.insert(app.bundle_id.clone());
-            // Also add the reversed domain prefix (e.g., "com.apple")
-            if let Some(prefix) = app.bundle_id.rsplitn(2, '.').last() {
-                prefixes.insert(prefix.to_string());
+            prefixes.insert(app.bundle_id.to_lowercase());
+            
+            // Add each component of the bundle ID
+            // e.g., com.adobe.lightroomCC -> ["com", "adobe", "lightroomcc"]
+            for part in app.bundle_id.split('.') {
+                if !part.is_empty() && part.len() > 2 {
+                    prefixes.insert(part.to_lowercase());
+                }
             }
         }
+        
         // Add normalized app name
-        prefixes.insert(app.name.to_lowercase().replace(" ", ""));
+        let normalized_name = app.name.to_lowercase().replace(" ", "").replace("-", "").replace("_", "");
+        prefixes.insert(normalized_name);
+        prefixes.insert(app.name.to_lowercase());
     }
+    
+    // Add common CLI tools and system packages that don't have .app bundles
+    // but are actively used and should not be considered orphans
+    let common_tools = [
+        "homebrew", "brew",
+        "node", "npm", "pnpm", "yarn",
+        "python", "pip", "conda",
+        "ruby", "gem", "bundler",
+        "git", "gh",
+        "docker", "docker-compose",
+        "postgres", "postgresql", "mysql", "redis",
+        "java", "maven", "gradle",
+        "rust", "cargo", "rustup",
+        "go", "golang",
+        "php", "composer",
+        "terraform", "ansible",
+        "kubectl", "helm",
+        "aws", "gcloud", "azure",
+    ];
+    
+    for tool in &common_tools {
+        prefixes.insert(tool.to_string());
+    }
+    
     prefixes
 }
 
 /// Check if a folder name might be associated with a known app
 fn is_known_app(name: &str, known_prefixes: &HashSet<String>) -> bool {
-    let normalized = name.to_lowercase().replace(" ", "").replace("-", "").replace("_", "");
+    let name_lower = name.to_lowercase();
+    let normalized = name_lower.replace(" ", "").replace("-", "").replace("_", "");
     
-    // Direct match
-    if known_prefixes.contains(&normalized) || known_prefixes.contains(name) {
+    // Direct exact match (case-insensitive)
+    if known_prefixes.contains(&name_lower) || known_prefixes.contains(&normalized) {
         return true;
     }
     
-    // Check if any prefix matches
-    for prefix in known_prefixes {
-        if normalized.contains(&prefix.to_lowercase()) || prefix.to_lowercase().contains(&normalized) {
+    // Check if the folder name is a bundle ID that matches
+    if name.contains('.') {
+        // It's likely a bundle ID like "com.adobe.lightroomCC"
+        // Check if it exactly matches any known bundle ID
+        if known_prefixes.contains(name) || known_prefixes.contains(&name_lower) {
             return true;
+        }
+        
+        // Check each component of the bundle ID
+        for part in name.split('.') {
+            let part_lower = part.to_lowercase();
+            if known_prefixes.contains(&part_lower) && part.len() > 3 {
+                // Found a significant matching component
+                return true;
+            }
+        }
+    }
+    
+    // Check if any known prefix is contained in the folder name
+    // or vice versa (but only for longer strings to avoid false positives)
+    for prefix in known_prefixes {
+        if prefix.len() > 3 && normalized.len() > 3 {
+            if normalized.contains(prefix) || prefix.contains(&normalized) {
+                return true;
+            }
         }
     }
     
@@ -170,6 +227,32 @@ fn scan_library_subdir(subdir: &str, orphan_type: OrphanType, known_prefixes: &H
                         continue;
                     }
                     
+                    // Skip common system directories that should not be deleted
+                    let protected_names = [
+                        "Saved Application State",
+                        "WebKit",
+                        "Safari",
+                        "Mail",
+                        "Messages",
+                        "Calendars",
+                        "Keychains",
+                        "ColorPickers",
+                        "Compositions",
+                        "Input Methods",
+                        "Keyboard Layouts",
+                        "LaunchAgents",
+                        "LaunchDaemons",
+                        "PreferencePanes",
+                        "QuickLook",
+                        "Screen Savers",
+                        "Services",
+                        "Spotlight",
+                    ];
+                    
+                    if protected_names.iter().any(|&p| name == p) {
+                        continue;
+                    }
+                    
                     let size = if path.is_dir() {
                         get_directory_size(&path)
                     } else {
@@ -202,9 +285,12 @@ pub fn scan_orphan_files() -> Vec<OrphanFile> {
     let mut all_orphans = Vec::new();
     
     // Scan different Library subdirectories
+    // Note: Containers is SIP-protected and cannot be deleted programmatically,
+    // but users can delete them manually via Finder, so we include them in the scan
     all_orphans.extend(scan_library_subdir("Application Support", OrphanType::ApplicationSupport, &known_prefixes));
     all_orphans.extend(scan_library_subdir("Preferences", OrphanType::Preferences, &known_prefixes));
     all_orphans.extend(scan_library_subdir("Containers", OrphanType::Containers, &known_prefixes));
+    all_orphans.extend(scan_library_subdir("Caches", OrphanType::Caches, &known_prefixes));
     all_orphans.extend(scan_library_subdir("Logs", OrphanType::Logs, &known_prefixes));
     
     // Sort by size descending
@@ -212,15 +298,80 @@ pub fn scan_orphan_files() -> Vec<OrphanFile> {
     all_orphans
 }
 
-/// Delete an orphan file or directory
+/// Delete an orphan file or directory by moving it to trash
 pub fn delete_orphan(path: &str) -> Result<(), String> {
     let path = PathBuf::from(path);
-    if path.exists() {
-        if path.is_dir() {
-            fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
-        } else {
-            fs::remove_file(&path).map_err(|e| e.to_string())?;
+    
+    if !path.exists() {
+        return Ok(());
+    }
+    
+    // Check if we have permission to access the file
+    let needs_admin = if let Ok(metadata) = path.metadata() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let permissions = metadata.permissions();
+            let mode = permissions.mode();
+            
+            // Check if we have write permission (owner write bit)
+            mode & 0o200 == 0
+        }
+        #[cfg(not(unix))]
+        {
+            false
+        }
+    } else {
+        false
+    };
+    
+    // Try to move to trash normally first
+    match trash::delete(&path) {
+        Ok(_) => Ok(()),
+        Err(_) if needs_admin => {
+            // If normal deletion fails and we detected permission issues,
+            // try with admin privileges
+            delete_with_admin_privileges(&path)
+        }
+        Err(_) => {
+            // Try admin deletion as fallback for any error
+            delete_with_admin_privileges(&path)
         }
     }
-    Ok(())
+}
+
+/// Delete a file with administrator privileges using AppleScript
+fn delete_with_admin_privileges(path: &PathBuf) -> Result<(), String> {
+    use std::process::Command;
+    
+    let path_str = path.to_string_lossy();
+    
+    // Use AppleScript to request admin privileges and delete the file
+    // This will prompt the user for their password
+    let script = format!(
+        r#"do shell script "rm -rf '{}'" with administrator privileges"#,
+        path_str.replace("'", "'\\''") // Escape single quotes
+    );
+    
+    let output = Command::new("osascript")
+        .arg("-e")
+        .arg(&script)
+        .output()
+        .map_err(|e| format!("Failed to execute admin deletion: {}", e))?;
+    
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        
+        // Check if user cancelled the password prompt
+        if stderr.contains("User canceled") || stderr.contains("-128") {
+            Err("Deletion cancelled by user".to_string())
+        } else {
+            Err(format!(
+                "Failed to delete with admin privileges: {}",
+                stderr.trim()
+            ))
+        }
+    }
 }

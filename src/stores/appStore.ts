@@ -4,6 +4,7 @@ import type {
   CacheEntry,
   DeveloperCache,
   OrphanFile,
+  LargeAppData,
   LargeFile,
   DuplicateGroup,
   SystemInfo,
@@ -43,6 +44,12 @@ interface AppState {
   isLoadingOrphans: boolean;
   scanOrphanFiles: () => Promise<void>;
   deleteOrphan: (path: string) => Promise<boolean>;
+
+  // Large app data
+  largeAppData: LargeAppData[];
+  isLoadingLargeAppData: boolean;
+  scanLargeAppData: () => Promise<void>;
+  deleteLargeAppData: (path: string) => Promise<boolean>;
 
   // Large files
   largeFiles: LargeFile[];
@@ -178,6 +185,36 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       await invoke("delete_orphan", { path });
       set({ orphanFiles: get().orphanFiles.filter((o) => o.path !== path) });
+      return true;
+    } catch (error) {
+      get().addToast("error", "Delete Failed", String(error));
+      return false;
+    }
+  },
+
+  // Large app data
+  largeAppData: [],
+  isLoadingLargeAppData: false,
+  scanLargeAppData: async () => {
+    set({ isLoadingLargeAppData: true });
+    try {
+      const largeAppData = await invoke<LargeAppData[]>("scan_large_app_data");
+      set({ largeAppData });
+      get().addToast(
+        "success",
+        "Scan Complete",
+        `Found ${largeAppData.length} large app folders`
+      );
+    } catch (error) {
+      get().addToast("error", "Scan Failed", String(error));
+    } finally {
+      set({ isLoadingLargeAppData: false });
+    }
+  },
+  deleteLargeAppData: async (path) => {
+    try {
+      await invoke("delete_orphan", { path }); // Reuse delete_orphan command
+      set({ largeAppData: get().largeAppData.filter((d) => d.path !== path) });
       return true;
     } catch (error) {
       get().addToast("error", "Delete Failed", String(error));

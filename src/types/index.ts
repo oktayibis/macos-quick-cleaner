@@ -51,6 +51,13 @@ export interface OrphanFile {
   possible_app_name: string;
 }
 
+export interface LargeAppData {
+  path: string;
+  name: string;
+  size: number;
+  location: string; // "ApplicationSupport" | "Containers" | "Caches"
+}
+
 // Large file types
 export type FileCategory =
   | "Video"

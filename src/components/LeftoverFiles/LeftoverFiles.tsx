@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { formatBytes } from '../../hooks/useFormatters';
-import { FolderX, RefreshCw, Trash2, Check, Square, CheckSquare } from 'lucide-react';
+import { FolderX, RefreshCw, Trash2, Check, Square, CheckSquare, FolderOpen } from 'lucide-react';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ProgressOverlay } from '../common/ProgressOverlay';
+import { invoke } from '@tauri-apps/api/core';
 
 export function LeftoverFiles() {
-  const { orphanFiles, isLoadingOrphans, scanOrphanFiles, deleteOrphan } = useAppStore();
+  const { 
+    orphanFiles, isLoadingOrphans, scanOrphanFiles, deleteOrphan,
+    addToast 
+  } = useAppStore();
+  
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   
@@ -20,8 +25,8 @@ export function LeftoverFiles() {
     path?: string;
   }>({ isOpen: false, type: 'single' });
 
-  const totalSize = orphanFiles.reduce((sum, o) => sum + o.size, 0);
-  const selectedSize = orphanFiles.filter(o => selectedPaths.has(o.path)).reduce((sum, o) => sum + o.size, 0);
+  const totalSize = orphanFiles.reduce((sum, item) => sum + item.size, 0);
+  const selectedSize = orphanFiles.filter(item => selectedPaths.has(item.path)).reduce((sum, item) => sum + item.size, 0);
 
   const toggleSelection = (path: string) => {
     const newSelected = new Set(selectedPaths);
@@ -34,7 +39,7 @@ export function LeftoverFiles() {
   };
 
   const selectAll = () => {
-    setSelectedPaths(new Set(orphanFiles.map(o => o.path)));
+    setSelectedPaths(new Set(orphanFiles.map(item => item.path)));
   };
 
   const deselectAll = () => {
@@ -55,31 +60,59 @@ export function LeftoverFiles() {
     setConfirmDialog({ isOpen: true, type: 'all' });
   };
 
+  const handleOpenInFinder = async (path: string) => {
+    try {
+      await invoke('reveal_in_finder', { path });
+      addToast('info', 'Opened in Finder', 'You can now delete this file manually in Finder');
+    } catch (error) {
+      addToast('error', 'Failed to Open', String(error));
+    }
+  };
+
   const executeDelete = async () => {
     setIsDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
     
     if (confirmDialog.type === 'single' && confirmDialog.path) {
-      const orphan = orphanFiles.find(o => o.path === confirmDialog.path);
-      setProgress({ current: 0, total: 1, item: orphan?.name || '' });
-      await deleteOrphan(confirmDialog.path);
-      selectedPaths.delete(confirmDialog.path);
-      setSelectedPaths(new Set(selectedPaths));
+      const item = orphanFiles.find(d => d.path === confirmDialog.path);
+      setProgress({ current: 0, total: 1, item: item?.name || '' });
+      const success = await deleteOrphan(confirmDialog.path);
+      if (success) {
+        successCount++;
+        selectedPaths.delete(confirmDialog.path);
+        setSelectedPaths(new Set(selectedPaths));
+      } else {
+        failCount++;
+      }
     } else if (confirmDialog.type === 'selected') {
       const paths = Array.from(selectedPaths);
       setProgress({ current: 0, total: paths.length, item: '' });
       for (let i = 0; i < paths.length; i++) {
-        const orphan = orphanFiles.find(o => o.path === paths[i]);
-        setProgress({ current: i, total: paths.length, item: orphan?.name || paths[i] });
-        await deleteOrphan(paths[i]);
+        const item = orphanFiles.find(d => d.path === paths[i]);
+        setProgress({ current: i, total: paths.length, item: item?.name || paths[i] });
+        const success = await deleteOrphan(paths[i]);
+        if (success) successCount++;
+        else failCount++;
       }
       setSelectedPaths(new Set());
     } else if (confirmDialog.type === 'all') {
-      setProgress({ current: 0, total: orphanFiles.length, item: '' });
-      for (let i = 0; i < orphanFiles.length; i++) {
-        setProgress({ current: i, total: orphanFiles.length, item: orphanFiles[i].name });
-        await deleteOrphan(orphanFiles[i].path);
+      const allItems = [...orphanFiles];
+      setProgress({ current: 0, total: allItems.length, item: '' });
+      for (let i = 0; i < allItems.length; i++) {
+        setProgress({ current: i, total: allItems.length, item: allItems[i].name });
+        const success = await deleteOrphan(allItems[i].path);
+        if (success) successCount++;
+        else failCount++;
       }
       setSelectedPaths(new Set());
+    }
+    
+    // Show summary toast
+    if (successCount > 0 && failCount === 0) {
+      addToast('success', 'Delete Complete', `Successfully deleted ${successCount} file${successCount > 1 ? 's' : ''}`);
+    } else if (failCount > 0 && successCount > 0) {
+      addToast('warning', 'Partial Delete', `Deleted ${successCount}, failed ${failCount}`);
     }
     
     setProgress({ current: 0, total: 0, item: '' });
@@ -88,24 +121,24 @@ export function LeftoverFiles() {
 
   const getDialogProps = () => {
     if (confirmDialog.type === 'single' && confirmDialog.path) {
-      const orphan = orphanFiles.find(o => o.path === confirmDialog.path);
+      const item = orphanFiles.find(o => o.path === confirmDialog.path);
       return {
         title: 'Delete Leftover File?',
-        message: `Are you sure you want to delete "${orphan?.name}"? This was left by "${orphan?.possible_app_name}".`,
+        message: `Are you sure you want to delete "${item?.name}"? This was left by "${item?.possible_app_name}".`,
         itemCount: 1,
-        totalSize: formatBytes(orphan?.size || 0),
+        totalSize: formatBytes(item?.size || 0),
       };
     } else if (confirmDialog.type === 'selected') {
       return {
         title: 'Delete Selected Leftovers?',
-        message: 'Are you sure you want to delete all selected leftover files? This action cannot be undone.',
+        message: 'Are you sure you want to delete all selected items? This action cannot be undone.',
         itemCount: selectedPaths.size,
         totalSize: formatBytes(selectedSize),
       };
     } else {
       return {
         title: 'Delete All Leftovers?',
-        message: 'Are you sure you want to delete all leftover files? This action cannot be undone.',
+        message: 'Are you sure you want to delete all items? This action cannot be undone.',
         itemCount: orphanFiles.length,
         totalSize: formatBytes(totalSize),
       };
@@ -117,6 +150,7 @@ export function LeftoverFiles() {
       case 'ApplicationSupport': return 'App Support';
       case 'Preferences': return 'Preferences';
       case 'Containers': return 'Container';
+      case 'Caches': return 'Caches';
       case 'Logs': return 'Logs';
       default: return 'Other';
     }
@@ -128,6 +162,8 @@ export function LeftoverFiles() {
         <h1 className="page-title">Leftover Files</h1>
         <p className="page-subtitle">Find files left behind by uninstalled applications</p>
       </header>
+
+
 
       {/* Stats */}
       <div className="stats-grid" style={{ marginBottom: '24px' }}>
@@ -201,7 +237,7 @@ export function LeftoverFiles() {
         )}
       </div>
 
-      {/* Orphan list */}
+      {/* List */}
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">Potential Leftover Files ({orphanFiles.length})</h3>
@@ -215,29 +251,37 @@ export function LeftoverFiles() {
           </div>
         ) : (
           <div className="list">
-            {orphanFiles.map((orphan) => (
-              <div key={orphan.path} className="list-item">
+            {orphanFiles.map((item) => (
+              <div key={item.path} className="list-item">
                 <div
-                  className={`checkbox ${selectedPaths.has(orphan.path) ? 'checked' : ''}`}
-                  onClick={() => toggleSelection(orphan.path)}
+                  className={`checkbox ${selectedPaths.has(item.path) ? 'checked' : ''}`}
+                  onClick={() => toggleSelection(item.path)}
                 >
-                  {selectedPaths.has(orphan.path) && <Check size={14} color="white" />}
+                  {selectedPaths.has(item.path) && <Check size={14} color="white" />}
                 </div>
                 <div className="list-item-icon">
                   <FolderX size={20} />
                 </div>
                 <div className="list-item-content">
-                  <div className="list-item-title">{orphan.name}</div>
+                  <div className="list-item-title">{item.name}</div>
                   <div className="list-item-subtitle">
-                    Possibly from: {orphan.possible_app_name}
+                    Possibly from: {item.possible_app_name}
                   </div>
                 </div>
-                <span className="badge badge-audio">{getOrphanTypeLabel(orphan.orphan_type)}</span>
-                <div className="list-item-size">{formatBytes(orphan.size)}</div>
+                <span className="badge badge-audio">{getOrphanTypeLabel(item.orphan_type)}</span>
+                <div className="list-item-size">{formatBytes(item.size)}</div>
+                <button
+                  className="btn btn-icon btn-secondary"
+                  onClick={() => handleOpenInFinder(item.path)}
+                  title="Open in Finder"
+                  disabled={isDeleting}
+                >
+                  <FolderOpen size={16} />
+                </button>
                 <button
                   className="btn btn-icon btn-danger"
-                  onClick={() => handleDeleteSingle(orphan.path)}
-                  title="Delete orphan file"
+                  onClick={() => handleDeleteSingle(item.path)}
+                  title="Delete"
                   disabled={isDeleting}
                 >
                   <Trash2 size={16} />

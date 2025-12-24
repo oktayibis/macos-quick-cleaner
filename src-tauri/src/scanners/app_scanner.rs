@@ -373,3 +373,41 @@ fn delete_with_admin_privileges(path: &std::path::Path) -> Result<(), String> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_app_name() {
+        assert_eq!(extract_app_name("com.apple.Music"), "Music");
+        assert_eq!(extract_app_name("com.openai.ChatGPT"), "ChatGPT");
+        assert_eq!(extract_app_name("SimpleApp"), "SimpleApp");
+        assert_eq!(extract_app_name("org.videolan.vlc"), "vlc");
+    }
+
+    #[test]
+    fn test_is_known_app() {
+        let mut prefixes = HashSet::new();
+        prefixes.insert("com.adobe".to_string());
+        prefixes.insert("adobe".to_string());
+        prefixes.insert("photoshop".to_string());
+        prefixes.insert("cargo".to_string());
+
+        // Exact matches
+        assert!(is_known_app("Adobe", &prefixes));
+        assert!(is_known_app("Photoshop", &prefixes));
+        assert!(is_known_app("cargo", &prefixes));
+
+        // Bundle ID matches
+        assert!(is_known_app("com.adobe.Lightroom", &prefixes));
+        assert!(is_known_app("com.unknown.Photoshop", &prefixes));
+
+        // Normalized matches
+        assert!(is_known_app("Photo Shop", &prefixes)); // Normalized matches "photoshop"
+
+        // False positives
+        assert!(!is_known_app("UnknownApp", &prefixes));
+        assert!(!is_known_app("com.unknown.app", &prefixes));
+    }
+}

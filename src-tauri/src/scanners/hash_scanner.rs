@@ -217,3 +217,31 @@ pub fn move_duplicate_to_trash(path: &str) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_calculate_full_hash() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "content").unwrap();
+        let path = temp_file.path().to_path_buf();
+        
+        let hash = calculate_full_hash(&path).unwrap();
+        // SHA256 of "content"
+        assert_eq!(hash, "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73");
+    }
+
+    #[test]
+    fn test_calculate_partial_hash() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "content").unwrap();
+        let path = temp_file.path().to_path_buf();
+        
+        let hash = calculate_partial_hash(&path).unwrap();
+        assert_eq!(hash, "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73");
+    }
+}

@@ -211,3 +211,20 @@ pub fn move_to_trash(path: &str) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_file_category() {
+        assert_eq!(get_file_category("jpg"), FileCategory::Image);
+        assert_eq!(get_file_category("JPG"), FileCategory::Image);
+        assert_eq!(get_file_category("mp4"), FileCategory::Video);
+        assert_eq!(get_file_category("doc"), FileCategory::Document);
+        assert_eq!(get_file_category("zip"), FileCategory::Archive);
+        assert_eq!(get_file_category("app"), FileCategory::Application);
+        assert_eq!(get_file_category("dmg"), FileCategory::DiskImage);
+        assert_eq!(get_file_category("unknown_ext"), FileCategory::Other);
+    }
+}

@@ -10,9 +10,10 @@
     "tauri": "tauri",
     "lint:frontend": "eslint .",
     "lint:backend": "cd src-tauri && cargo clippy -- -D warnings",
-    "quality-gate": "npm run lint:frontend && npm run lint:backend && npm run test:coverage",
     "test": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:backend": "cd src-tauri && cargo test",
+    "quality-gate": "npm run lint:frontend && npm run lint:backend && npm run test:coverage && npm run test:backend"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

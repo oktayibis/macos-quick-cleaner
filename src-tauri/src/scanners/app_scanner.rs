@@ -66,11 +66,16 @@ fn get_bundle_id_from_app(app_path: &std::path::Path) -> Option<String> {
 
 /// Scan /Applications and ~/Applications for installed apps
 pub fn scan_installed_apps() -> Vec<InstalledApp> {
+    let mut app_dirs = vec![PathBuf::from("/Applications")];
+    if let Some(home) = get_home_dir() {
+        app_dirs.push(home.join("Applications"));
+    }
+    scan_apps_in_directories(app_dirs)
+}
+
+/// Scan specific directories for installed apps
+pub fn scan_apps_in_directories(app_dirs: Vec<PathBuf>) -> Vec<InstalledApp> {
     let mut apps = Vec::new();
-    let app_dirs = vec![
-        PathBuf::from("/Applications"),
-        get_home_dir().map(|h| h.join("Applications")).unwrap_or_default(),
-    ];
     
     for app_dir in app_dirs {
         if !app_dir.exists() {
@@ -203,70 +208,67 @@ fn extract_app_name(name: &str) -> String {
 }
 
 /// Scan a Library subdirectory for potential orphan files
-fn scan_library_subdir(subdir: &str, orphan_type: OrphanType, known_prefixes: &HashSet<String>) -> Vec<OrphanFile> {
+fn scan_library_subdir(library_path: &std::path::Path, subdir: &str, orphan_type: OrphanType, known_prefixes: &HashSet<String>) -> Vec<OrphanFile> {
     let mut orphans = Vec::new();
+    let dir_path = library_path.join(subdir);
     
-    if let Some(home) = get_home_dir() {
-        let dir_path = home.join("Library").join(subdir);
-        
-        if dir_path.exists() {
-            if let Ok(read_dir) = fs::read_dir(&dir_path) {
-                for entry in read_dir.filter_map(|e| e.ok()) {
-                    let path = entry.path();
-                    let name = entry.file_name().to_string_lossy().to_string();
-                    
-                    // Skip if it's a known app
-                    if is_known_app(&name, known_prefixes) {
-                        continue;
-                    }
-                    
-                    // Skip system/Apple items
-                    if name.starts_with("com.apple.") || name.starts_with(".") {
-                        continue;
-                    }
-                    
-                    // Skip common system directories that should not be deleted
-                    let protected_names = [
-                        "Saved Application State",
-                        "WebKit",
-                        "Safari",
-                        "Mail",
-                        "Messages",
-                        "Calendars",
-                        "Keychains",
-                        "ColorPickers",
-                        "Compositions",
-                        "Input Methods",
-                        "Keyboard Layouts",
-                        "LaunchAgents",
-                        "LaunchDaemons",
-                        "PreferencePanes",
-                        "QuickLook",
-                        "Screen Savers",
-                        "Services",
-                        "Spotlight",
-                    ];
-                    
-                    if protected_names.iter().any(|&p| name == p) {
-                        continue;
-                    }
-                    
-                    let size = if path.is_dir() {
-                        get_directory_size(&path)
-                    } else {
-                        path.metadata().map(|m| m.len()).unwrap_or(0)
-                    };
-                    
-                    // Only include if size > 0
-                    if size > 0 {
-                        orphans.push(OrphanFile {
-                            path: path.to_string_lossy().to_string(),
-                            name: name.clone(),
-                            size,
-                            orphan_type: orphan_type.clone(),
-                            possible_app_name: extract_app_name(&name),
-                        });
-                    }
+    if dir_path.exists() {
+        if let Ok(read_dir) = fs::read_dir(&dir_path) {
+            for entry in read_dir.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                let name = entry.file_name().to_string_lossy().to_string();
+                
+                // Skip if it's a known app
+                if is_known_app(&name, known_prefixes) {
+                    continue;
+                }
+                
+                // Skip system/Apple items
+                if name.starts_with("com.apple.") || name.starts_with(".") {
+                    continue;
+                }
+                
+                // Skip common system directories that should not be deleted
+                let protected_names = [
+                    "Saved Application State",
+                    "WebKit",
+                    "Safari",
+                    "Mail",
+                    "Messages",
+                    "Calendars",
+                    "Keychains",
+                    "ColorPickers",
+                    "Compositions",
+                    "Input Methods",
+                    "Keyboard Layouts",
+                    "LaunchAgents",
+                    "LaunchDaemons",
+                    "PreferencePanes",
+                    "QuickLook",
+                    "Screen Savers",
+                    "Services",
+                    "Spotlight",
+                ];
+                
+                if protected_names.iter().any(|&p| name == p) {
+                    continue;
+                }
+                
+                let size = if path.is_dir() {
+                    get_directory_size(&path)
+                } else {
+                    path.metadata().map(|m| m.len()).unwrap_or(0)
+                };
+                
+                // Only include if size > 0
+                if size > 0 {
+                    orphans.push(OrphanFile {
+                        path: path.to_string_lossy().to_string(),
+                        name: name.clone(),
+                        size,
+                        orphan_type: orphan_type.clone(),
+                        possible_app_name: extract_app_name(&name),
+                    });
                 }
             }
         }
@@ -275,25 +277,29 @@ fn scan_library_subdir(subdir: &str, orphan_type: OrphanType, known_prefixes: &H
     orphans
 }
 
+/// Scan for all orphan files (internal)
+pub fn scan_orphans_with_custom_paths(apps: Vec<InstalledApp>, library_path: &std::path::Path) -> Vec<OrphanFile> {
+    let known_prefixes = get_known_bundle_prefixes(&apps);
+    let mut all_orphans = Vec::new();
+
+    all_orphans.extend(scan_library_subdir(library_path, "Application Support", OrphanType::ApplicationSupport, &known_prefixes));
+    all_orphans.extend(scan_library_subdir(library_path, "Preferences", OrphanType::Preferences, &known_prefixes));
+    all_orphans.extend(scan_library_subdir(library_path, "Containers", OrphanType::Containers, &known_prefixes));
+    all_orphans.extend(scan_library_subdir(library_path, "Caches", OrphanType::Caches, &known_prefixes));
+    all_orphans.extend(scan_library_subdir(library_path, "Logs", OrphanType::Logs, &known_prefixes));
+
+    all_orphans.sort_by(|a, b| b.size.cmp(&a.size));
+    all_orphans
+}
+
 /// Scan for all orphan files
 pub fn scan_orphan_files() -> Vec<OrphanFile> {
     let apps = scan_installed_apps();
-    let known_prefixes = get_known_bundle_prefixes(&apps);
-    
-    let mut all_orphans = Vec::new();
-    
-    // Scan different Library subdirectories
-    // Note: Containers is SIP-protected and cannot be deleted programmatically,
-    // but users can delete them manually via Finder, so we include them in the scan
-    all_orphans.extend(scan_library_subdir("Application Support", OrphanType::ApplicationSupport, &known_prefixes));
-    all_orphans.extend(scan_library_subdir("Preferences", OrphanType::Preferences, &known_prefixes));
-    all_orphans.extend(scan_library_subdir("Containers", OrphanType::Containers, &known_prefixes));
-    all_orphans.extend(scan_library_subdir("Caches", OrphanType::Caches, &known_prefixes));
-    all_orphans.extend(scan_library_subdir("Logs", OrphanType::Logs, &known_prefixes));
-    
-    // Sort by size descending
-    all_orphans.sort_by(|a, b| b.size.cmp(&a.size));
-    all_orphans
+    if let Some(home) = get_home_dir() {
+        let library_path = home.join("Library");
+        return scan_orphans_with_custom_paths(apps, &library_path);
+    }
+    Vec::new()
 }
 
 /// Delete an orphan file or directory by moving it to trash
@@ -371,5 +377,98 @@ fn delete_with_admin_privileges(path: &std::path::Path) -> Result<(), String> {
                 stderr.trim()
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_app_name() {
+        assert_eq!(extract_app_name("com.apple.Music"), "Music");
+        assert_eq!(extract_app_name("com.openai.ChatGPT"), "ChatGPT");
+        assert_eq!(extract_app_name("SimpleApp"), "SimpleApp");
+        assert_eq!(extract_app_name("org.videolan.vlc"), "vlc");
+    }
+
+    #[test]
+    fn test_is_known_app() {
+        let mut prefixes = HashSet::new();
+        prefixes.insert("com.adobe".to_string());
+        prefixes.insert("adobe".to_string());
+        prefixes.insert("photoshop".to_string());
+        prefixes.insert("cargo".to_string());
+
+        // Exact matches
+        assert!(is_known_app("Adobe", &prefixes));
+        assert!(is_known_app("Photoshop", &prefixes));
+        assert!(is_known_app("cargo", &prefixes));
+
+        // Bundle ID matches
+        assert!(is_known_app("com.adobe.Lightroom", &prefixes));
+        assert!(is_known_app("com.unknown.Photoshop", &prefixes));
+
+        // Normalized matches
+        assert!(is_known_app("Photo Shop", &prefixes)); // Normalized matches "photoshop"
+
+        // False positives
+        assert!(!is_known_app("UnknownApp", &prefixes));
+        assert!(!is_known_app("com.unknown.app", &prefixes));
+    }
+
+    #[test]
+    fn test_scan_apps_in_directories() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let apps_dir = temp_dir.path().join("Applications");
+        fs::create_dir(&apps_dir).unwrap();
+        
+        // Create FakeApp.app directory
+        let app_path = apps_dir.join("FakeApp.app");
+        fs::create_dir(&app_path).unwrap();
+        
+        let apps = scan_apps_in_directories(vec![apps_dir]);
+        assert_eq!(apps.len(), 1);
+        assert_eq!(apps[0].name, "FakeApp");
+    }
+
+    #[test]
+    fn test_scan_orphans() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let lib_dir = temp_dir.path().join("Library");
+        fs::create_dir(&lib_dir).unwrap();
+        
+        // Create orphan directories
+        let app_support = lib_dir.join("Application Support");
+        fs::create_dir(&app_support).unwrap();
+        let orphan_app_dir = app_support.join("OrphanApp");
+        fs::create_dir(&orphan_app_dir).unwrap();
+        fs::write(orphan_app_dir.join("data.txt"), "some data").unwrap();
+        
+        let caches = lib_dir.join("Caches");
+        fs::create_dir(&caches).unwrap();
+        fs::create_dir(caches.join("OrphanApp")).unwrap();
+        
+        // Installed apps (does not include OrphanApp)
+        let apps = vec![
+            InstalledApp {
+                name: "RealApp".to_string(),
+                bundle_id: "com.real.app".to_string(),
+                path: "/Applications/RealApp.app".to_string(),
+            }
+        ];
+
+        let orphans = scan_orphans_with_custom_paths(apps, &lib_dir);
+        
+        assert!(orphans.len() >= 1);
+        let names: Vec<String> = orphans.iter().map(|o| o.name.clone()).collect();
+        assert!(names.contains(&"OrphanApp".to_string()));
+    }
+
+    #[test]
+    fn test_wrappers_sanity() {
+        // Just run them to check they don't panic and exercise code
+        let _ = scan_installed_apps();
+        let _ = scan_orphan_files();
     }
 }

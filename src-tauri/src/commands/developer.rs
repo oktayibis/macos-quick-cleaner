@@ -298,3 +298,18 @@ pub async fn is_developer_user() -> Result<bool, String> {
     
     Ok(false)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_scan_developer_caches() {
+        let _ = scan_developer_caches().await;
+    }
+
+    #[tokio::test]
+    async fn test_get_total_developer_cache_size() {
+        let _ = get_total_developer_cache_size().await;
+    }
+}

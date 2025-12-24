@@ -109,8 +109,8 @@ pub fn scan_large_files(
     {
         let file_path = entry.path();
         
-        // Skip hidden files and system directories
-        if file_path.to_string_lossy().contains("/.") {
+        // Skip hidden files
+        if file_path.file_name().map(|s| s.to_string_lossy().starts_with('.')).unwrap_or(false) {
             continue;
         }
         
@@ -211,3 +211,44 @@ pub fn move_to_trash(path: &str) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+
+    #[test]
+    fn test_get_file_category() {
+        assert_eq!(get_file_category("jpg"), FileCategory::Image);
+        assert_eq!(get_file_category("JPG"), FileCategory::Image);
+        assert_eq!(get_file_category("mp4"), FileCategory::Video);
+        assert_eq!(get_file_category("doc"), FileCategory::Document);
+        assert_eq!(get_file_category("zip"), FileCategory::Archive);
+        assert_eq!(get_file_category("app"), FileCategory::Application);
+        assert_eq!(get_file_category("dmg"), FileCategory::DiskImage);
+        assert_eq!(get_file_category("unknown_ext"), FileCategory::Other);
+    }
+
+    #[test]
+    fn test_scan_large_files() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dir_path = temp_dir.path();
+
+        // Create a large file
+        let large_file_path = dir_path.join("large_video.mp4");
+        let f = File::create(&large_file_path).unwrap();
+        f.set_len(1024 * 1024 * 5).unwrap(); // 5MB
+
+        // Create a small file
+        let small_file_path = dir_path.join("small.txt");
+        let f = File::create(&small_file_path).unwrap();
+        f.set_len(1024).unwrap(); // 1KB
+
+        let files = scan_large_files(dir_path.to_str().unwrap(), 1, None); // Min 1MB
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, large_file_path.to_string_lossy());
+        assert_eq!(files[0].category, FileCategory::Video);
+    }
+}
+

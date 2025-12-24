@@ -51,6 +51,9 @@ jobs:
       - name: Run Frontend Lint
         run: npm run lint:frontend
 
+      - name: Run Frontend Tests
+        run: npm run test
+
   backend-quality:
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
@@ -75,3 +78,14 @@ jobs:
 
       - name: Run Backend Lint (Clippy)
         run: npm run lint:backend
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Run Backend Tests & Coverage
+        run: |
+          echo "::notice::Running tests with 80% line coverage threshold. If this fails, add more tests to reach the target."
+          cd src-tauri && cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info --fail-under-lines 80 || {
+            echo "::error::Coverage is below 80%! Add more tests to increase coverage."
+            exit 1
+          }

@@ -87,7 +87,7 @@ pub fn scan_duplicates(directory: &str, min_size_mb: u64) -> Vec<DuplicateGroup>
         let file_path = entry.path().to_path_buf();
         
         // Skip hidden files
-        if file_path.to_string_lossy().contains("/.") {
+        if file_path.file_name().map(|s| s.to_string_lossy().starts_with('.')).unwrap_or(false) {
             continue;
         }
         
@@ -216,4 +216,72 @@ pub fn move_duplicate_to_trash(path: &str) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_calculate_full_hash() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "content").unwrap();
+        let path = temp_file.path().to_path_buf();
+        
+        let hash = calculate_full_hash(&path).unwrap();
+        // SHA256 of "content"
+        assert_eq!(hash, "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73");
+    }
+
+    #[test]
+    fn test_calculate_partial_hash() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        write!(temp_file, "content").unwrap();
+        let path = temp_file.path().to_path_buf();
+        
+        // SHA256 of "content"
+        let expected = "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73";
+
+        let hash = calculate_partial_hash(&path).unwrap();
+        assert_eq!(hash, expected);
+    }
+
+    #[test]
+    fn test_scan_duplicates() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let dir_path = temp_dir.path();
+
+        // Create original file
+        let file1_path = dir_path.join("file1.txt");
+        let mut f1 = File::create(&file1_path).unwrap();
+        write!(f1, "duplicate content").unwrap();
+
+        // Create duplicate file
+        let file2_path = dir_path.join("file2.txt");
+        let mut f2 = File::create(&file2_path).unwrap();
+        write!(f2, "duplicate content").unwrap();
+
+        // Create unique file
+        let file3_path = dir_path.join("unique.txt");
+        let mut f3 = File::create(&file3_path).unwrap();
+        write!(f3, "unique content").unwrap();
+
+        // Min size 0 to catch these small files
+        let duplicates = scan_duplicates(dir_path.to_str().unwrap(), 0);
+
+        assert_eq!(duplicates.len(), 1);
+        assert_eq!(duplicates[0].files.len(), 2);
+        // Order is not guaranteed, check containment below
+
+        // Actually walkdir order is not guaranteed, but we sort duplicates by size then...
+        // The implementation sorts files inside scan_duplicates? 
+        // No, it just pushes them.
+        // Wait, the test might be flaky on file order inside the group.
+        // `duplicates[0].files` contains 2 files.
+        let names: Vec<String> = duplicates[0].files.iter().map(|f| f.name.clone()).collect();
+        assert!(names.contains(&"file1.txt".to_string()));
+        assert!(names.contains(&"file2.txt".to_string()));
+    }
 }

@@ -27,8 +27,10 @@ jobs:
               - 'tsconfig*.json'
               - 'vite.config.ts'
               - 'eslint.config.js'
+              - '.github/**'
             backend:
               - 'src-tauri/**'
+              - '.github/**'
 
   frontend-quality:
     needs: changes

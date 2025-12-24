@@ -1,0 +1,48 @@
+[package]
+name = "macos-quick-cleaner"
+version = "0.1.0"
+description = "A macOS disk cleanup and optimization utility"
+authors = ["Oktay"]
+edition = "2021"
+
+[lib]
+name = "macos_quick_cleaner_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["macos-private-api"] }
+tauri-plugin-opener = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# File operations
+walkdir = "2"
+sha2 = "0.10"
+hex = "0.4"
+
+# macOS specific
+plist = "1"
+dirs = "5"
+hostname = "0.4"
+libc = "0.2"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Date/time handling  
+chrono = { version = "0.4", features = ["serde"] }
+
+# Human-readable sizes
+bytesize = "1"
+
+# Logging
+log = "0.4"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# macOS-specific dependencies if needed

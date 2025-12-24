@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+
 use tauri::command;
 
 /// Disk usage information
@@ -35,7 +35,7 @@ fn get_disk_usage() -> DiskUsage {
         unsafe {
             if libc::statvfs(path.as_ptr(), stat.as_mut_ptr()) == 0 {
                 let stat = stat.assume_init();
-                let block_size = stat.f_frsize as u64;
+                let block_size = stat.f_frsize;
                 let total = stat.f_blocks as u64 * block_size;
                 let free = stat.f_bavail as u64 * block_size;
                 let used = total - free;

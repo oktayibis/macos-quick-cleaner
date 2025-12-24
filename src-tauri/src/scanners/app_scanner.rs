@@ -50,7 +50,7 @@ fn get_directory_size(path: &PathBuf) -> u64 {
 }
 
 /// Extract bundle ID from Info.plist if available
-fn get_bundle_id_from_app(app_path: &PathBuf) -> Option<String> {
+fn get_bundle_id_from_app(app_path: &std::path::Path) -> Option<String> {
     let plist_path = app_path.join("Contents").join("Info.plist");
     if plist_path.exists() {
         if let Ok(plist) = plist::from_file::<_, plist::Value>(&plist_path) {
@@ -183,10 +183,8 @@ fn is_known_app(name: &str, known_prefixes: &HashSet<String>) -> bool {
     // Check if any known prefix is contained in the folder name
     // or vice versa (but only for longer strings to avoid false positives)
     for prefix in known_prefixes {
-        if prefix.len() > 3 && normalized.len() > 3 {
-            if normalized.contains(prefix) || prefix.contains(&normalized) {
-                return true;
-            }
+        if prefix.len() > 3 && normalized.len() > 3 && (normalized.contains(prefix) || prefix.contains(&normalized)) {
+            return true;
         }
     }
     
@@ -341,7 +339,7 @@ pub fn delete_orphan(path: &str) -> Result<(), String> {
 }
 
 /// Delete a file with administrator privileges using AppleScript
-fn delete_with_admin_privileges(path: &PathBuf) -> Result<(), String> {
+fn delete_with_admin_privileges(path: &std::path::Path) -> Result<(), String> {
     use std::process::Command;
     
     let path_str = path.to_string_lossy();

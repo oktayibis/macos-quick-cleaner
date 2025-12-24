@@ -24,6 +24,7 @@ pub struct DuplicateFile {
 
 /// Scan progress information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct ScanProgress {
     pub files_scanned: u64,
     pub duplicates_found: u64,
@@ -93,7 +94,7 @@ pub fn scan_duplicates(directory: &str, min_size_mb: u64) -> Vec<DuplicateGroup>
         if let Ok(metadata) = std::fs::metadata(&file_path) {
             let size = metadata.len();
             if size >= min_size_bytes {
-                size_groups.entry(size).or_insert_with(Vec::new).push(file_path);
+                size_groups.entry(size).or_default().push(file_path);
             }
         }
     }
@@ -110,7 +111,7 @@ pub fn scan_duplicates(directory: &str, min_size_mb: u64) -> Vec<DuplicateGroup>
             if let Some(partial_hash) = calculate_partial_hash(file_path) {
                 partial_hash_groups
                     .entry((*size, partial_hash))
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(file_path.clone());
             }
         }
@@ -129,7 +130,7 @@ pub fn scan_duplicates(directory: &str, min_size_mb: u64) -> Vec<DuplicateGroup>
             if let Some(full_hash) = calculate_full_hash(file_path) {
                 full_hash_groups
                     .entry(full_hash.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(file_path.clone());
                 file_sizes.insert(full_hash, *size);
             }

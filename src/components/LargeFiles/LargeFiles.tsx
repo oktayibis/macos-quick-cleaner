@@ -234,7 +234,7 @@ export function LargeFiles() {
           <div className="empty-state">
             <FolderX size={48} className="empty-state-icon" />
             <p className="empty-state-title">No large folders scanned yet</p>
-            <p>Click "Scan Large Folders" to find the biggest app data folders</p>
+            <p>Click &quot;Scan Large Folders&quot; to find the biggest app data folders</p>
           </div>
         ) : (
           <div className="list">

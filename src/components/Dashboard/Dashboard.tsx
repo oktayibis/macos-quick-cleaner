@@ -64,6 +64,12 @@ export function Dashboard() {
 
   const isScanning = isLoadingCaches || isLoadingDeveloperCaches || isLoadingOrphans || isLoadingLargeFiles || isLoadingDuplicates;
 
+  let progressClass = '';
+  if (diskUsage) {
+    if (diskUsage.used_percentage > 90) progressClass = 'danger';
+    else if (diskUsage.used_percentage > 70) progressClass = 'warning';
+  }
+
   return (
     <div className="main-content">
       <header className="page-header">
@@ -112,7 +118,7 @@ export function Dashboard() {
               </div>
               <div className="progress-bar" style={{ width: '300px' }}>
                 <div
-                  className={`progress-fill ${diskUsage.used_percentage > 90 ? 'danger' : diskUsage.used_percentage > 70 ? 'warning' : ''}`}
+                  className={`progress-fill ${progressClass}`}
                   style={{ width: `${diskUsage.used_percentage}%` }}
                 />
               </div>

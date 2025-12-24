@@ -256,7 +256,7 @@ export function DeveloperTools() {
           <div className="empty-state">
             <Code2 size={48} className="empty-state-icon" />
             <p className="empty-state-title">No developer caches scanned yet</p>
-            <p>Click "Scan Developer Caches" to find build artifacts and package caches</p>
+            <p>Click &quot;Scan Developer Caches&quot; to find build artifacts and package caches</p>
           </div>
         ) : (
           <div className="list">

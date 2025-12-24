@@ -240,7 +240,7 @@ export function CacheCleanup() {
           <div className="empty-state">
             <Database size={48} className="empty-state-icon" />
             <p className="empty-state-title">No caches scanned yet</p>
-            <p>Click "Scan Caches" to find cached files</p>
+            <p>Click &quot;Scan Caches&quot; to find cached files</p>
           </div>
         ) : (
           <div className="list">

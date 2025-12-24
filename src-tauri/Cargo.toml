@@ -1,6 +1,6 @@
 [package]
 name = "macos-quick-cleaner"
-version = "0.1.0"
+version = "1.0.0"
 description = "A macOS disk cleanup and optimization utility"
 authors = ["Oktay"]
 edition = "2021"

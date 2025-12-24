@@ -282,7 +282,7 @@ export function LargeFiles() {
       {/* Confirmation Dialog */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
-        onClose={() => setConfirmDialog({ isOpen: false, type: 'single' })}
+        onCancel={() => setConfirmDialog({ isOpen: false, type: 'single' })}
         onConfirm={() => {
           setConfirmDialog({ isOpen: false, type: 'single' });
           executeDelete();
@@ -291,13 +291,13 @@ export function LargeFiles() {
       />
 
       {/* Progress Overlay */}
-      {isDeleting && (
-        <ProgressOverlay
-          current={progress.current}
-          total={progress.total}
-          itemName={progress.item}
-        />
-      )}
+      <ProgressOverlay
+        isVisible={isDeleting}
+        currentItem={progress.item}
+        currentIndex={progress.current}
+        totalItems={progress.total}
+        action="Deleting"
+      />
     </div>
   );
 }

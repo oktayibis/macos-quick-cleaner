@@ -246,7 +246,8 @@ describe("appStore", () => {
         path: "/orphan",
         size: 50,
         name: "orphan",
-        parent_app: "App",
+        orphan_type: "ApplicationSupport",
+        possible_app_name: "App",
       };
       useAppStore.setState({
         orphanFiles: [orphan],
@@ -274,7 +275,8 @@ describe("appStore", () => {
         path: "/orphan",
         size: 50,
         name: "orphan",
-        parent_app: "App",
+        orphan_type: "ApplicationSupport",
+        possible_app_name: "App",
       };
       useAppStore.setState({ orphanFiles: [orphan] });
       invokeMock.mockRejectedValue(new Error("Failed"));
@@ -299,7 +301,12 @@ describe("appStore", () => {
     });
 
     it("deletes large app data", async () => {
-      const data: LargeAppData = { path: "/app", size: 1000, name: "App" };
+      const data: LargeAppData = {
+        path: "/app",
+        size: 1000,
+        name: "App",
+        location: "ApplicationSupport",
+      };
       useAppStore.setState({
         largeAppData: [data],
       });
@@ -322,7 +329,12 @@ describe("appStore", () => {
     });
 
     it("handles delete error", async () => {
-      const data: LargeAppData = { path: "/app", size: 1000, name: "App" };
+      const data: LargeAppData = {
+        path: "/app",
+        size: 1000,
+        name: "App",
+        location: "ApplicationSupport",
+      };
       useAppStore.setState({ largeAppData: [data] });
       invokeMock.mockRejectedValue(new Error("Failed"));
       const { deleteLargeAppData } = useAppStore.getState();
@@ -346,7 +358,14 @@ describe("appStore", () => {
     });
 
     it("deletes large file", async () => {
-      const file: LargeFile = { path: "/file", size: 200, name: "file" };
+      const file: LargeFile = {
+        path: "/file",
+        size: 200,
+        name: "file",
+        category: "Other",
+        last_modified: null,
+        extension: "txt",
+      };
       useAppStore.setState({
         largeFiles: [file],
       });
@@ -369,7 +388,14 @@ describe("appStore", () => {
     });
 
     it("handles delete error", async () => {
-      const file: LargeFile = { path: "/file", size: 200, name: "file" };
+      const file: LargeFile = {
+        path: "/file",
+        size: 200,
+        name: "file",
+        category: "Other",
+        last_modified: null,
+        extension: "txt",
+      };
       useAppStore.setState({ largeFiles: [file] });
       invokeMock.mockRejectedValue(new Error("Failed"));
       const { deleteFile } = useAppStore.getState();
@@ -396,13 +422,12 @@ describe("appStore", () => {
       const initialDupes: DuplicateGroup[] = [
         {
           hash: "123",
-          original_file: { path: "/o", size: 100, modified: 0 },
           files: [
-            { path: "/d1", size: 100, modified: 0 },
-            { path: "/d2", size: 100, modified: 0 },
-          ], // 2 files
+            { path: "/d1", name: "d1" },
+            { path: "/d2", name: "d2" },
+          ],
+          file_size: 100,
           total_wasted: 100,
-          count: 2,
         },
       ];
       useAppStore.setState({ duplicates: initialDupes });

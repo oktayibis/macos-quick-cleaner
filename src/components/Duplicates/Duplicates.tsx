@@ -80,8 +80,9 @@ export function Duplicates() {
 
   const getDialogProps = () => {
     if (confirmDialog.type === 'single' && confirmDialog.path) {
-      const file = duplicates.flatMap(g => g.files).find(f => f.path === confirmDialog.path);
-      return { title: 'Delete Duplicate?', message: `Delete "${file?.name}"?`, itemCount: 1, totalSize: formatBytes(file?.size || 0) };
+      const group = duplicates.find(g => g.files.some(f => f.path === confirmDialog.path));
+      const file = group?.files.find(f => f.path === confirmDialog.path);
+      return { title: 'Delete Duplicate?', message: `Delete "${file?.name}"?`, itemCount: 1, totalSize: formatBytes(group?.file_size || 0) };
     } else if (confirmDialog.type === 'selected') {
       return { title: 'Delete Selected?', message: 'Delete all selected duplicates?', itemCount: selectedPaths.size, totalSize: formatBytes(selectedSize) };
     }

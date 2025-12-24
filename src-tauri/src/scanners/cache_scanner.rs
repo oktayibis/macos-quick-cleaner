@@ -101,7 +101,7 @@ fn is_developer_cache(name: &str) -> bool {
 }
 
 /// Determine if a cache is safe to delete
-fn is_safe_to_delete(name: &str, cache_type: &CacheType) -> bool {
+fn is_safe_to_delete(_name: &str, cache_type: &CacheType) -> bool {
     match cache_type {
         CacheType::System => false, // Never auto-delete system caches
         CacheType::Browser => true,
@@ -114,11 +114,11 @@ fn is_safe_to_delete(name: &str, cache_type: &CacheType) -> bool {
 /// Get a human-readable description for the cache
 fn get_cache_description(name: &str, cache_type: &CacheType) -> String {
     match cache_type {
-        CacheType::Browser => format!("Browser cache for {}", name.split('.').last().unwrap_or(name)),
-        CacheType::Developer => format!("Developer tools cache"),
-        CacheType::System => format!("System cache (use caution)"),
-        CacheType::Application => format!("Application cache"),
-        CacheType::Unknown => format!("Unknown cache type"),
+        CacheType::Browser => format!("Browser cache for {}", name.split('.').next_back().unwrap_or(name)),
+        CacheType::Developer => "Developer tools cache".to_string(),
+        CacheType::System => "System cache (use caution)".to_string(),
+        CacheType::Application => "Application cache".to_string(),
+        CacheType::Unknown => "Unknown cache type".to_string(),
     }
 }
 

@@ -247,7 +247,7 @@ export function LeftoverFiles() {
           <div className="empty-state">
             <FolderX size={48} className="empty-state-icon" />
             <p className="empty-state-title">No leftover files scanned yet</p>
-            <p>Click "Scan for Leftovers" to find orphaned application data</p>
+            <p>Click &quot;Scan for Leftovers&quot; to find orphaned application data</p>
           </div>
         ) : (
           <div className="list">
